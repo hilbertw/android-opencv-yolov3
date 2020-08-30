@@ -8,20 +8,19 @@ import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnTouchListener;
+import android.view.WindowManager;
 
-import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
-import org.opencv.android.JavaCameraView;
-import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
-import org.opencv.core.MatOfRect;
+import org.opencv.core.MatOfRect2d;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
+import org.opencv.core.Rect2d;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.dnn.Dnn;
@@ -36,18 +35,25 @@ import java.util.List;
 
 import static java.lang.Math.round;
 import static org.opencv.core.Core.FILLED;
-import static org.opencv.core.Core.FONT_HERSHEY_SIMPLEX;
+import static org.opencv.imgproc.Imgproc.FONT_HERSHEY_SIMPLEX;
 import static org.opencv.imgproc.Imgproc.putText;
 import static org.opencv.imgproc.Imgproc.rectangle;
 
 public class MainActivity extends AppCompatActivity implements OnTouchListener, CvCameraViewListener2 {
 
+
     static {
-        OpenCVLoader.initDebug();
+        if (!OpenCVLoader.initDebug())
+
+//        if (!myStaticHelper.initOpenCV(false,myApplication.getContext()))
+            Log.e("OpenCv", "Unable to load OpenCV");
+        else
+            Log.d("OpenCv", "OpenCV loaded");
     }
-    private static final String TAG="opencv_yolov3";
+
+    private static final String TAG = "opencv_yolov3";
     private CameraBridgeViewBase mOpenCvCameraView;
-    private ArrayList<String>    classes = new ArrayList<String>();
+    private ArrayList<String> classes = new ArrayList<String>();
     String classesFile = "coco.names";
     String modelConfiguration = "/yolov3.cfg";
     String modelWeights = "/yolov3.weights";
@@ -61,6 +67,8 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
         setContentView(R.layout.activity_main);
         //mOpenCvCameraView = (CameraBridgeViewBase) new JavaCameraView(this, 1);
 
@@ -72,6 +80,9 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         mOpenCvCameraView.setCvCameraViewListener(this);
         mOpenCvCameraView.enableView();
         mOpenCvCameraView.setOnTouchListener(MainActivity.this);
+
+        //modelConfiguration = "/sdcard" + modelConfiguration;
+        //modelWeights = "/sdcard" + modelWeights;
 
         modelConfiguration = Environment.getExternalStorageDirectory().getPath() + modelConfiguration;
         modelWeights = Environment.getExternalStorageDirectory().getPath() + modelWeights;
@@ -97,7 +108,7 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
 
     }
 
-    private void readClasses(ArrayList<String> classes, String file){
+        private void readClasses(ArrayList<String> classes, String file) {
         BufferedReader reader = null;
         try {
             reader = new BufferedReader(
@@ -143,6 +154,7 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     public void onCameraViewStopped() {
 
     }
+
     List<String> getOutputsNames(Net net)
     {
         ArrayList<String> names = new ArrayList<String>();
@@ -155,7 +167,7 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
 
             // Get the names of the output layers in names
             for (int i = 0; i < outLayers.size(); ++i) {
-                String layer = layersNames.get(outLayers.get(i).intValue()-1);
+                String layer = layersNames.get(outLayers.get(i).intValue() - 1);
                 names.add(layer);
             }
         }
@@ -171,31 +183,32 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         String label = String.format("%.2f", conf);
         if (classes.size() > 0)
         {
-            label = classes.get(classId) + ":" + label;System.out.println(label);
+            label = classes.get(classId) + ":" + label;
+            System.out.println(label);
         }
 
         //Display the label at the top of the bounding box
         int[] baseLine = new int[1];
         Size labelSize = Imgproc.getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, baseLine);
-        top = java.lang.Math.max(top, (int)labelSize.height);
-        rectangle(frame, new Point(left, top - round(1.5*labelSize.height)),
-                new Point(left + round(1.5*labelSize.width), top + baseLine[0]), new Scalar(255, 255, 255), FILLED);
-        putText(frame, label, new Point(left, top), FONT_HERSHEY_SIMPLEX, 0.75, new Scalar(0,0,0),1);
+        top = java.lang.Math.max(top, (int) labelSize.height);
+        rectangle(frame, new Point(left, top - round(1.5 * labelSize.height)),
+                new Point(left + round(1.5 * labelSize.width), top + baseLine[0]), new Scalar(255, 255, 255), FILLED);
+        putText(frame, label, new Point(left, top), FONT_HERSHEY_SIMPLEX, 0.75, new Scalar(0, 0, 0), 1);
     }
 
-    private float get_iou(Rect bb1, Rect bb2){
+    private float get_iou(Rect bb1, Rect bb2) {
         int x_left = java.lang.Math.max(bb1.x, bb2.x);
         int y_top = java.lang.Math.max(bb1.y, bb2.y);
         int x_right = java.lang.Math.min(bb1.x + bb1.height, bb2.x + bb2.height);
         int y_bottom = java.lang.Math.min(bb1.y + bb1.width, bb2.y + bb2.width);
-        if( x_right < x_left || y_bottom < y_top){
+        if (x_right < x_left || y_bottom < y_top) {
             return 0.0f;
         }
         int intersection_area = (x_right - x_left) * (y_bottom - y_top);
         int bb1_area = bb1.width * bb1.height;
         int bb2_area = bb2.width * bb2.height;
 
-        float iou = intersection_area / (float)(bb1_area + bb2_area - intersection_area);
+        float iou = intersection_area / (float) (bb1_area + bb2_area - intersection_area);
 
         return iou;
     }
@@ -205,7 +218,9 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     {
         List<Integer> classIds = new ArrayList<Integer>();
         List<Float> confidences = new ArrayList<Float>();
-        List<Rect> boxes = new ArrayList<Rect>();
+        //List<Rect> boxes = new ArrayList<Rect>();
+        List<Rect2d> boxes = new ArrayList<>();
+
         //List<Integer> idxs = new ArrayList<Integer>();
         List<Float> objconf = new ArrayList<Float>();
 
@@ -224,19 +239,19 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
                     float[] data = new float[1];
                     bb.get(0, 0, data);
 
-                    int centerX = (int)(data[0] * frame.cols());
+                    int centerX = (int) (data[0] * frame.cols());
 
                     bb.get(0, 1, data);
 
-                    int centerY = (int)(data[0] * frame.rows());
+                    int centerY = (int) (data[0] * frame.rows());
 
                     bb.get(0, 2, data);
 
-                    int width = (int)(data[0] * frame.cols());
+                    int width = (int) (data[0] * frame.cols());
 
                     bb.get(0, 3, data);
 
-                    int height = (int)(data[0] * frame.rows());
+                    int height = (int) (data[0] * frame.rows());
 
                     int left = centerX - width / 2;
                     int top = centerY - height / 2;
@@ -244,9 +259,11 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
                     bb.get(0, 4, data);
                     objconf.add(data[0]);
 
-                    confidences.add((float)r.maxVal);
-                    classIds.add((int)r.maxLoc.x);
-                    boxes.add(new Rect(left, top, width, height));
+                    confidences.add((float) r.maxVal);
+                    classIds.add((int) r.maxLoc.x);
+                    boxes.add(new Rect2d(left, top, width, height));
+                    //boxes.add(new Rect(left, top, width, height));
+
                 }
             }
         }
@@ -277,20 +294,23 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
                         box.x + box.width, box.y + box.height, frame);
             }
         }*/
-
-        MatOfRect boxs =  new MatOfRect();
+        //MatOfRect boxs =  new MatOfRect();
+        // boxs.fromList(boxes);
+        MatOfRect2d boxs = new MatOfRect2d();
         boxs.fromList(boxes);
         MatOfFloat confis = new MatOfFloat();
         confis.fromList(objconf);
         MatOfInt idxs = new MatOfInt();
         Dnn.NMSBoxes(boxs, confis, confThreshold, nmsThreshold, idxs);
-        if(idxs.total() > 0) {
+        //Dnn.NMSBoxes(boxs, confis, confThreshold, nmsThreshold, idxs);
+        if (idxs.total() > 0) {
             int[] indices = idxs.toArray();
             for (int i = 0; i < indices.length; ++i) {
                 int idx = indices[i];
-                Rect box = boxes.get(idx);
-                drawPred(classIds.get(idx), confidences.get(idx), box.x, box.y,
-                        box.x + box.width, box.y + box.height, frame);
+                Rect2d box = boxes.get(idx);
+                //Rect box = boxes.get(idx);
+                drawPred(classIds.get(idx), confidences.get(idx), (int) box.x, (int) box.y,
+                        (int) box.x + (int) box.width, (int) box.y + (int) box.height, frame);
             }
         }
     }
@@ -300,7 +320,7 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         frame = inputFrame.rgba();
         Mat dst = new Mat();
         Imgproc.cvtColor(frame, dst, Imgproc.COLOR_BGRA2BGR);
-        Mat blob = Dnn.blobFromImage(dst, 1/255.0, new Size(inpWidth, inpHeight), new Scalar(0,0,0), true, false);
+        Mat blob = Dnn.blobFromImage(dst, 1 / 255.0, new Size(inpWidth, inpHeight), new Scalar(0, 0, 0), true, false);
         net.setInput(blob);
         List<Mat> outs = new ArrayList<Mat>();
         net.forward(outs, getOutputsNames(net));
@@ -339,4 +359,28 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     }
 
  */
+/*
+    public static void init(Context mContext) {
+        BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(mContext) {
+            @Override
+            public void onManagerConnected(int status) {
+                super.onManagerConnected(status);
+                switch (status) {
+                    case LoaderCallbackInterface.SUCCESS:
+                        break;
+                    default:
+                        super.onManagerConnected(status);
+                        break;
+                }
+            }
+        };
+        if (!myStaticHelper.initOpenCV(false,mContext)) {
+            Log.d("OpenCV", "Internal OpenCV library not found. Using OpenCV Manager for initialization");
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, mContext, mLoaderCallback);
+        } else {
+            Log.d("OpenCV", "OpenCV library found inside package. Using it!");
+            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+        }
+    }
+    */
 }
