@@ -3,13 +3,17 @@ package com.dmp.yolov3;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnTouchListener;
 
+import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
+import org.opencv.android.JavaCameraView;
+import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
@@ -41,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     static {
         OpenCVLoader.initDebug();
     }
-
+    private static final String TAG="opencv_yolov3";
     private CameraBridgeViewBase mOpenCvCameraView;
     private ArrayList<String>    classes = new ArrayList<String>();
     String classesFile = "coco.names";
@@ -49,8 +53,8 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     String modelWeights = "/yolov3.weights";
     float confThreshold = 0.5f;
     float nmsThreshold = 0.4f;
-    int inpWidth = 416;
-    int inpHeight = 416;
+    int inpWidth = 608;//416;
+    int inpHeight = 608;//416;
     Mat frame;
     Net net;
 
@@ -58,10 +62,14 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        //mOpenCvCameraView = (CameraBridgeViewBase) new JavaCameraView(this, 1);
 
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.yolov3cam);
+
+        mOpenCvCameraView.setCameraIndex(CameraBridgeViewBase.CAMERA_ID_FRONT);
+
         mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
-       mOpenCvCameraView.setCvCameraViewListener(this);
+        mOpenCvCameraView.setCvCameraViewListener(this);
         mOpenCvCameraView.enableView();
         mOpenCvCameraView.setOnTouchListener(MainActivity.this);
 
@@ -299,4 +307,36 @@ public class MainActivity extends AppCompatActivity implements OnTouchListener, 
         postprocess(frame, outs);
         return frame;
     }
+/*
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch (status) {
+                case LoaderCallbackInterface.SUCCESS:
+                    Log.i(TAG, "OpenCV loaded successfully");
+
+                    mOpenCvCameraView.setOnTouchListener(MainActivity.this);
+                    mOpenCvCameraView.enableView();
+
+                    break;
+                default:
+                    super.onManagerConnected(status);
+                    break;
+            }
+        }
+    };
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (!OpenCVLoader.initDebug()) {
+            Log.d(TAG, "Internal OpenCV library not found. Using OpenCV Manager for initialization");
+            OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_3_0_0, this, mLoaderCallback);
+        } else {
+            Log.d(TAG, "OpenCV library found inside package. Using it!");
+            mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
+        }
+    }
+
+ */
 }
